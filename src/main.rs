@@ -3,12 +3,14 @@ extern crate pem;
 extern crate sha2;
 extern crate x509_parser;
 
-use x509_parser::prelude::*;
 use oid_registry::{Oid, OidRegistry};
-use sha2::{Sha256, Digest};
+use sha2::{Digest, Sha256};
+use x509_parser::prelude::*;
 
 fn oid_to_abbrev(oid: &Oid) -> String {
-    oid2abbrev(oid, &OidRegistry::default()).expect("oid should be known").to_string()
+    oid2abbrev(oid, &OidRegistry::default())
+        .map(|s| s.to_string())
+        .unwrap_or(oid.to_string())
 }
 
 fn reverse_dn(dn: &X509Name) -> String {
@@ -17,7 +19,7 @@ fn reverse_dn(dn: &X509Name) -> String {
         let mut avas: Vec<String> = Vec::new();
         for ava in rdn.iter() {
             let mut value = ava.as_str().expect("ava should be displayable").to_string();
-            if value.contains(",") {
+            if value.contains(',') {
                 value = format!("\"{value}\"");
             }
             let typ = oid_to_abbrev(ava.attr_type());
@@ -36,12 +38,12 @@ fn print_hash(der: &[u8]) {
     for b in &hash[0..11] {
         print!("0x{:02X}, ", b);
     }
-    println!("");
+    println!();
     print!("      ");
     for b in &hash[11..22] {
         print!("0x{:02X}, ", b);
     }
-    println!("");
+    println!();
     print!("      ");
     for b in &hash[22..31] {
         print!("0x{:02X}, ", b);
@@ -55,9 +57,12 @@ fn print_subject(subject: &X509Name) {
     let mut first = true;
     for chunk in base64_chunks {
         if !first {
-            println!("");
+            println!();
         }
-        print!("    \"{}\"", std::str::from_utf8(chunk).expect("shouldn't have utf8 problems"));
+        print!(
+            "    \"{}\"",
+            std::str::from_utf8(chunk).expect("shouldn't have utf8 problems")
+        );
         first = false;
     }
     println!(",");
@@ -69,7 +74,9 @@ fn print_one_certificate(path: &str) {
         Ok(decoded) => decoded.contents,
         Err(_) => maybe_pem,
     };
-    let cert = X509Certificate::from_der(&der).expect("file should be x509 certificate").1;
+    let cert = X509Certificate::from_der(&der)
+        .expect("file should be x509 certificate")
+        .1;
     println!("  {{");
     println!("    // {}", reverse_dn(cert.subject()));
     println!("    \"2.23.140.1.1\",");
